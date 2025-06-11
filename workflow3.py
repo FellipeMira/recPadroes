@@ -112,13 +112,16 @@ def evaluate_on_test(trained: dict, X_test, y_test):
     return pd.DataFrame(results)
 
 
-def final_predictions(df_full, X_full, y_full, trained: dict, top_n: int = 3, output_csv: str = 'full_predictions_top3.csv'):
+def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
+                      top_n: int = 3,
+                      output_csv: str = 'full_predictions_top3.csv'):
     """
-    Gera predict / predict_proba para os top_n modelos (por F1_Macro no teste)
-    sobre o dataset completo, anexa colunas ao df_full e salva CSV.
+    Gera predict/predict_proba para os ``top_n`` modelos (ordenados pelo
+    ``F1_Macro`` obtido no conjunto de teste) sobre o dataset completo,
+    anexa colunas ao ``df_full`` e salva CSV.
     """
     # Recarregar avaliação de teste para ordenar
-    test_df = evaluate_on_test(trained, X_full, y_full)
+    test_df = evaluate_on_test(trained, X_test, y_test)
     top_models = test_df.sort_values('F1_Macro', ascending=False).head(top_n)['Model'].tolist()
     print(f"\nTop {top_n} modelos: {top_models}")
 
@@ -260,7 +263,7 @@ def main():
     df_test_eval.to_csv('model_performance_test.csv', index=False)
 
     # 10. Predições finais no dataset completo
-    final_predictions(df, X_full, y_full, trained, top_n=3)
+    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=3)
 
     print("\n>>> Script concluído!")
 
