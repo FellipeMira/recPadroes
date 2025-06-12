@@ -21,9 +21,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
-from sklearn.pipeline import Pipeline
-#from imblearn.pipeline import Pipeline as ImbPipeline
-#from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
 
 
 from mlxtend.feature_selection import SequentialFeatureSelector as SFS
@@ -57,20 +56,13 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
 
 
 def make_pipeline(estimator):
-    """Cria um pipeline com escalonamento, seleção e modelo (sklearn)."""
-    return Pipeline([
-            ('scaler',  StandardScaler()),
-            ('selector', SelectKBest(f_classif)),
-            ('model',    estimator)
+    """Cria um pipeline com amostragem para dados desbalanceados."""
+    return ImbPipeline([
+        ('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
+        ('scaler', StandardScaler()),
+        ('selector', SelectKBest(f_classif)),
+        ('model', estimator),
     ])
-# def make_pipeline(estimator):
-#     """Cria um pipeline com SMOTE, escalonamento, seleção e modelo."""
-#     return ImbPipeline([
-#         #('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
-#         ('scaler', StandardScaler()),
-#         #('selector', SelectKBest(f_classif, k=10)),
-#         ('model', estimator)
-#     ])
 
 
 def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter):
