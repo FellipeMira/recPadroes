@@ -26,7 +26,7 @@ from sklearn.decomposition import PCA
 
 
 
-from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+from sffs import sffs
 import warnings
 from joblib import Memory, dump
 
@@ -57,26 +57,11 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
     return X_train, X_test, y_train, y_test, X, y
 
 
-def select_features_sffs(X, y, cv, percents=(0.1, 0.25, 0.5, 0.75, 1.0)):
-    """Seleciona atributos usando Sequential Forward Floating Selection."""
-    scaler = StandardScaler().fit(X)
-    Xs = scaler.transform(X)
-    est = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
-
-    best_score = -np.inf
-    best_idx = None
-    for pct in percents:
-        k = max(1, int(X.shape[1] * pct))
-        sfs = SFS(est, k_features=k, forward=True, floating=True,
-                  scoring='f1_macro', cv=cv, n_jobs=-1)
-        sfs.fit(Xs, y)
-        print(f"SFFS {int(pct*100)}% → {sfs.k_score_:.4f}")
-        if sfs.k_score_ > best_score:
-            best_score = sfs.k_score_
-            best_idx = list(sfs.k_feature_idx_)
-
-    selected = X.columns[best_idx].tolist()
-    print(f"Melhores atributos: {selected}")
+def select_features_sffs(X, y, max_features=None):
+    """Seleciona atributos usando o algoritmo SFFS baseado em informação."""
+    subset, score = sffs(X.values, y.values, max_features=max_features)
+    selected = X.columns[subset].tolist()
+    print(f"Melhores atributos ({len(selected)}) → {selected}")
     return selected
 
 
@@ -86,6 +71,23 @@ def pca_analysis(X):
     pca.fit(X)
     print("Explained variance ratio:", pca.explained_variance_ratio_)
     print("Cumulated explained variance:", np.cumsum(pca.explained_variance_ratio_))
+
+
+def apply_pca(X_train, X_test, X_full, variance=0.95):
+    """Aplica padronização e PCA preservando a variância desejada."""
+    scaler = StandardScaler().fit(X_train)
+    X_train_s = scaler.transform(X_train)
+    X_test_s = scaler.transform(X_test)
+    X_full_s = scaler.transform(X_full)
+
+    pca = PCA(n_components=variance, random_state=42)
+    pca.fit(X_train_s)
+    cols = [f'PC{i+1}' for i in range(pca.n_components_)]
+    X_train_p = pd.DataFrame(pca.transform(X_train_s), columns=cols, index=X_train.index)
+    X_test_p = pd.DataFrame(pca.transform(X_test_s), columns=cols, index=X_test.index)
+    X_full_p = pd.DataFrame(pca.transform(X_full_s), columns=cols, index=X_full.index)
+    print(f"PCA manteve {pca.n_components_} componentes")
+    return X_train_p, X_test_p, X_full_p
 
 
 def make_pipeline(estimator):
@@ -212,14 +214,14 @@ def main():
 
     # 3. Seleção de atributos (SFFS) e PCA
     print("\n>>> Selecionando atributos (SFFS)")
-    fs_cv = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
-    selected_cols = select_features_sffs(X_train, y_train, fs_cv)
+    selected_cols = select_features_sffs(X_train, y_train)
     X_train = X_train[selected_cols]
     X_test = X_test[selected_cols]
     X_full = X_full[selected_cols]
 
     print("\n>>> PCA dos atributos selecionados")
     pca_analysis(X_train)
+    X_train, X_test, X_full = apply_pca(X_train, X_test, X_full)
 
     # 4. CV e métricas
     skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
