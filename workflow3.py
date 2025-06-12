@@ -6,7 +6,6 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV, cross_validate
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.metrics import (
     accuracy_score, f1_score, recall_score,
     precision_score, cohen_kappa_score, make_scorer
@@ -23,6 +22,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.over_sampling import SMOTE
+from sklearn.decomposition import PCA
+
 
 
 from mlxtend.feature_selection import SequentialFeatureSelector as SFS
@@ -56,12 +57,42 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
     return X_train, X_test, y_train, y_test, X, y
 
 
+def select_features_sffs(X, y, cv, percents=(0.1, 0.25, 0.5, 0.75, 1.0)):
+    """Seleciona atributos usando Sequential Forward Floating Selection."""
+    scaler = StandardScaler().fit(X)
+    Xs = scaler.transform(X)
+    est = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
+
+    best_score = -np.inf
+    best_idx = None
+    for pct in percents:
+        k = max(1, int(X.shape[1] * pct))
+        sfs = SFS(est, k_features=k, forward=True, floating=True,
+                  scoring='f1_macro', cv=cv, n_jobs=-1)
+        sfs.fit(Xs, y)
+        print(f"SFFS {int(pct*100)}% → {sfs.k_score_:.4f}")
+        if sfs.k_score_ > best_score:
+            best_score = sfs.k_score_
+            best_idx = list(sfs.k_feature_idx_)
+
+    selected = X.columns[best_idx].tolist()
+    print(f"Melhores atributos: {selected}")
+    return selected
+
+
+def pca_analysis(X):
+    """Exibe a variância explicada dos componentes principais."""
+    pca = PCA(n_components=X.shape[1])
+    pca.fit(X)
+    print("Explained variance ratio:", pca.explained_variance_ratio_)
+    print("Cumulated explained variance:", np.cumsum(pca.explained_variance_ratio_))
+
+
 def make_pipeline(estimator):
     """Cria um pipeline com amostragem para dados desbalanceados."""
     return ImbPipeline([
         ('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
         ('scaler', StandardScaler()),
-        ('selector', SelectKBest(f_classif)),
         ('model', estimator),
     ])
 
@@ -73,10 +104,6 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     print(f"\n>>> Otimizando {name}")
     pipe = make_pipeline(estimator)
 
-    # acrescenta k de SelectKBest
-    param_dist = param_dist.copy()
-    max_k = X_train.shape[1]
-    param_dist['selector__k'] = np.arange(5, max_k + 1, 5)
 
     rs = RandomizedSearchCV(
         pipe, param_dist, n_iter=n_iter, cv=cv,
@@ -183,7 +210,18 @@ def main():
     # 2. Divide treino/teste
     X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
 
-    # 3. CV e métricas
+    # 3. Seleção de atributos (SFFS) e PCA
+    print("\n>>> Selecionando atributos (SFFS)")
+    fs_cv = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
+    selected_cols = select_features_sffs(X_train, y_train, fs_cv)
+    X_train = X_train[selected_cols]
+    X_test = X_test[selected_cols]
+    X_full = X_full[selected_cols]
+
+    print("\n>>> PCA dos atributos selecionados")
+    pca_analysis(X_train)
+
+    # 4. CV e métricas
     skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
     scorers = {
         'accuracy': make_scorer(accuracy_score),
@@ -195,7 +233,7 @@ def main():
     }
     n_iter = 2
 
-    # 4. Define modelos e parâmetros
+    # 5. Define modelos e parâmetros
     models = {
         'SVM-Linear': (SVC(kernel='linear', probability=True, random_state=42),
                        {'model__C': np.logspace(-2, 1, 10)}),
@@ -217,7 +255,7 @@ def main():
         #'RBF-Net':    (build_rbf_classifier(), {'model__n_clusters': [10,20], 'model__rbf_gamma': [0.1,1.0]})
     }
 
-    # 5. Treina e otimiza modelos
+    # 6. Treina e otimiza modelos
     trained = {}
     for name, (est, params) in models.items():
         trained[name] = run_model(
@@ -225,7 +263,7 @@ def main():
             model_dir=MODEL_DIR
         )
 
-    # 6. Ensemble: Bagging
+    # 7. Ensemble: Bagging
     bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
     bag = BaggingClassifier(estimator=bag_base, random_state=42)
     trained['Bagging'] = run_model(
@@ -233,7 +271,7 @@ def main():
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
     )
 
-    # 7. Ensemble: Stacking
+    # 8. Ensemble: Stacking
     stack = StackingClassifier(
         estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
@@ -243,18 +281,6 @@ def main():
         'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
     )
-
-    # 8. Seleção de atributos (SFS / SBFS)
-    print("\n>>> Seleção Sequencial de Atributos")
-    scaler = StandardScaler().fit(X_train)
-    Xs = pd.DataFrame(scaler.transform(X_train), columns=X_train.columns)
-    est_light = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
-    sfs = SFS(est_light, k_features=(5, Xs.shape[1]), forward=True, floating=True,
-              scoring='f1_macro', cv=skf, n_jobs=-1).fit(Xs.values, y_train.values)
-    print("SFS:", list(X_train.columns[list(sfs.k_feature_idx_)]), "→", sfs.k_score_)
-    sbfs = SFS(est_light, k_features=(5, Xs.shape[1]), forward=False, floating=True,
-               scoring='f1_macro', cv=skf, n_jobs=-1).fit(Xs.values, y_train.values)
-    print("SBFS:", list(X_train.columns[list(sbfs.k_feature_idx_)]), "→", sbfs.k_score_)
 
     # 9. Avaliação final no teste
     print("\n>>> Avaliação no conjunto de teste")
