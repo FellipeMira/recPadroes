@@ -21,19 +21,19 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
-from sklearn.pipeline import Pipeline
-#from imblearn.pipeline import Pipeline as ImbPipeline
-#from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
 
 
 from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 import warnings
-from joblib import Memory
+from joblib import Memory, dump
 
 #memory = Memory(location='cache_dir', verbose=1)
 
 warnings.filterwarnings('ignore')
 ROOT = os.getcwd()
+MODEL_DIR = os.path.join(ROOT, "model")
 
 
 def load_data(path: str):
@@ -57,23 +57,16 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
 
 
 def make_pipeline(estimator):
-    """Cria um pipeline com escalonamento, seleção e modelo (sklearn)."""
-    return Pipeline([
-            ('scaler',  StandardScaler()),
-            ('selector', SelectKBest(f_classif)),
-            ('model',    estimator)
+    """Cria um pipeline com amostragem para dados desbalanceados."""
+    return ImbPipeline([
+        ('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
+        ('scaler', StandardScaler()),
+        ('selector', SelectKBest(f_classif)),
+        ('model', estimator),
     ])
-# def make_pipeline(estimator):
-#     """Cria um pipeline com SMOTE, escalonamento, seleção e modelo."""
-#     return ImbPipeline([
-#         #('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
-#         ('scaler', StandardScaler()),
-#         #('selector', SelectKBest(f_classif, k=10)),
-#         ('model', estimator)
-#     ])
 
 
-def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter):
+def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter, model_dir="model"):
     """
     Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
     """
@@ -92,6 +85,12 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     )
     rs.fit(X_train, y_train)
     print(f"{name} → f1_macro CV: {rs.best_score_:.4f}, params: {rs.best_params_}")
+
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, f"{name.replace(' ', '_')}.joblib")
+    dump(rs.best_estimator_, model_path)
+    print(f"Modelo salvo em {model_path}")
+
     return rs.best_estimator_
 
 
@@ -222,14 +221,16 @@ def main():
     trained = {}
     for name, (est, params) in models.items():
         trained[name] = run_model(
-            name, est, params, X_train, y_train, skf, scorers, n_iter
+            name, est, params, X_train, y_train, skf, scorers, n_iter,
+            model_dir=MODEL_DIR
         )
 
     # 6. Ensemble: Bagging
     bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
     bag = BaggingClassifier(estimator=bag_base, random_state=42)
     trained['Bagging'] = run_model(
-        'Bagging', bag, {'model__n_estimators': [10,20,30]}, X_train, y_train, skf, scorers, n_iter
+        'Bagging', bag, {'model__n_estimators': [10,20,30]},
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
     )
 
     # 7. Ensemble: Stacking
@@ -239,7 +240,8 @@ def main():
         cv=skf, n_jobs=-1
     )
     trained['Stacking'] = run_model(
-        'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)}, X_train, y_train, skf, scorers, n_iter
+        'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)},
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
     )
 
     # 8. Seleção de atributos (SFS / SBFS)
