@@ -103,7 +103,11 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
     """
     print(f"\n>>> Otimizando {name}")
-    pipe = make_pipeline(estimator)
+    # Evita empilhar pipelines já pré-processados
+    if isinstance(estimator, Pipeline) or isinstance(estimator, StackingClassifier):
+        pipe = estimator
+    else:
+        pipe = make_pipeline(estimator)
 
 
     rs = RandomizedSearchCV(
@@ -275,7 +279,7 @@ def main():
         cv=skf, n_jobs=-1
     )
     trained['Stacking'] = run_model(
-        'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)},
+        'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
     )
 
@@ -320,7 +324,7 @@ def main():
         cv=skf, n_jobs=-1
     )
     trained['Stacking'] = run_model(
-        'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)},
+        'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA
     )
 
