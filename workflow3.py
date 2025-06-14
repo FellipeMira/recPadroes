@@ -20,11 +20,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
-from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
-
-
 
 from sffs import sffs
 import warnings
@@ -35,6 +33,7 @@ from joblib import Memory, dump
 warnings.filterwarnings('ignore')
 ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT, "model")
+MODEL_DIR_PCA = r"/home/mira/recPadroes/model_dir_2"
 
 
 def load_data(path: str):
@@ -57,7 +56,7 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
     return X_train, X_test, y_train, y_test, X, y
 
 
-def select_features_sffs(X, y, max_features=None):
+def select_features_sffs(X, y, max_features=8):
     """Seleciona atributos usando o algoritmo SFFS baseado em informação."""
     subset, score = sffs(X.values, y.values, max_features=max_features)
     selected = X.columns[subset].tolist()
@@ -92,7 +91,7 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
 
 def make_pipeline(estimator):
     """Cria um pipeline com amostragem para dados desbalanceados."""
-    return ImbPipeline([
+    return Pipeline([
         ('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
         ('scaler', StandardScaler()),
         ('model', estimator),
@@ -110,7 +109,7 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     rs = RandomizedSearchCV(
         pipe, param_dist, n_iter=n_iter, cv=cv,
         scoring=scorers, refit='f1_macro',
-        random_state=42, verbose=0, #n_jobs=-1
+        random_state=42, verbose=3, n_jobs=8
     )
     rs.fit(X_train, y_train)
     print(f"{name} → f1_macro CV: {rs.best_score_:.4f}, params: {rs.best_params_}")
@@ -219,10 +218,6 @@ def main():
     X_test = X_test[selected_cols]
     X_full = X_full[selected_cols]
 
-    print("\n>>> PCA dos atributos selecionados")
-    pca_analysis(X_train)
-    X_train, X_test, X_full = apply_pca(X_train, X_test, X_full)
-
     # 4. CV e métricas
     skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
     scorers = {
@@ -233,7 +228,7 @@ def main():
         'precision_macro': make_scorer(precision_score, average='macro'),
         'kappa': make_scorer(cohen_kappa_score)
     }
-    n_iter = 2
+    n_iter = 5
 
     # 5. Define modelos e parâmetros
     models = {
@@ -290,7 +285,52 @@ def main():
     print(df_test_eval.sort_values('F1_Macro', ascending=False).to_string(index=False))
 
     # salvar métricas de teste
-    df_test_eval.to_csv('model_performance_test.csv', index=False)
+    df_test_eval.to_csv('model_performance_test_SFFS.csv', index=False)
+
+    # 10. Predições finais no dataset completo
+    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=3)
+
+    
+    # PCA
+    print("\n>>> PCA dos atributos selecionados")
+    pca_analysis(X_train)
+    X_train, X_test, X_full = apply_pca(X_train, X_test, X_full)    
+    
+
+    # 6. Treina e otimiza modelos
+    trained = {}
+    for name, (est, params) in models.items():
+        trained[name] = run_model(
+            name, est, params, X_train, y_train, skf, scorers, n_iter,
+            model_dir=MODEL_DIR_PCA
+        )
+
+    # 7. Ensemble: Bagging
+    bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
+    bag = BaggingClassifier(estimator=bag_base, random_state=42)
+    trained['Bagging'] = run_model(
+        'Bagging', bag, {'model__n_estimators': [10,20,30]},
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA
+    )
+
+    # 8. Ensemble: Stacking
+    stack = StackingClassifier(
+        estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
+        final_estimator=LogisticRegression(max_iter=1000, random_state=42),
+        cv=skf, n_jobs=-1
+    )
+    trained['Stacking'] = run_model(
+        'Stacking', stack, {'final_estimator__C': np.logspace(-2,1,10)},
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA
+    )
+
+    # 9. Avaliação final no teste
+    print("\n>>> Avaliação no conjunto de teste")
+    df_test_eval = evaluate_on_test(trained, X_test, y_test)
+    print(df_test_eval.sort_values('F1_Macro', ascending=False).to_string(index=False))
+
+    # salvar métricas de teste
+    df_test_eval.to_csv('model_performance_test_PCA.csv', index=False)
 
     # 10. Predições finais no dataset completo
     final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=3)
