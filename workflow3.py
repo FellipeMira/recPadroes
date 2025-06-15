@@ -92,9 +92,19 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
 SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
 
 
-def make_pipeline(estimator):
+def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
+    """Retorna uma estratégia de amostragem sem exceder o número disponível."""
+    counts = y.value_counts().to_dict()
+    strategy = {}
+    for cls, count in counts.items():
+        target = desired.get(cls, count)
+        strategy[cls] = min(target, count)
+    return strategy
+
+
+def make_pipeline(estimator, sampling_strategy):
     """Cria um pipeline com RandomUnderSampler para balancear os dados."""
-    rus = RandomUnderSampler(sampling_strategy=SAMPLING_STRATEGY, random_state=42)
+    rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
     return Pipeline([
         ('undersample', rus),
         ('scaler', StandardScaler()),
@@ -102,7 +112,8 @@ def make_pipeline(estimator):
     ])
 
 
-def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter, model_dir="model"):
+def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter,
+              model_dir="model", sampling_strategy=SAMPLING_STRATEGY):
     """
     Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
     """
@@ -111,7 +122,7 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     if isinstance(estimator, Pipeline) or isinstance(estimator, StackingClassifier):
         pipe = estimator
     else:
-        pipe = make_pipeline(estimator)
+        pipe = make_pipeline(estimator, sampling_strategy)
 
 
     rs = RandomizedSearchCV(
@@ -219,6 +230,8 @@ def main():
     # 2. Divide treino/teste
     X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
 
+    sampling_strategy = compute_sampling_strategy(y_train)
+
     # 3. Seleção de atributos (SFFS) e PCA
     print("\n>>> Selecionando atributos (SFFS)")
     selected_cols = select_features_sffs(X_train, y_train)
@@ -265,7 +278,7 @@ def main():
     for name, (est, params) in models.items():
         trained[name] = run_model(
             name, est, params, X_train, y_train, skf, scorers, n_iter,
-            model_dir=MODEL_DIR
+            model_dir=MODEL_DIR, sampling_strategy=sampling_strategy
         )
 
     # 7. Ensemble: Bagging
@@ -273,7 +286,8 @@ def main():
     bag = BaggingClassifier(estimator=bag_base, random_state=42)
     trained['Bagging'] = run_model(
         'Bagging', bag, {'model__n_estimators': [10,20,30]},
-        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
+        sampling_strategy=sampling_strategy
     )
 
     # 8. Ensemble: Stacking
@@ -284,7 +298,8 @@ def main():
     )
     trained['Stacking'] = run_model(
         'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
-        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
+        sampling_strategy=sampling_strategy
     )
 
     # 9. Avaliação final no teste
@@ -310,7 +325,7 @@ def main():
     for name, (est, params) in models.items():
         trained[name] = run_model(
             name, est, params, X_train, y_train, skf, scorers, n_iter,
-            model_dir=MODEL_DIR_PCA
+            model_dir=MODEL_DIR_PCA, sampling_strategy=sampling_strategy
         )
 
     # 7. Ensemble: Bagging
@@ -318,7 +333,8 @@ def main():
     bag = BaggingClassifier(estimator=bag_base, random_state=42)
     trained['Bagging'] = run_model(
         'Bagging', bag, {'model__n_estimators': [10,20,30]},
-        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
+        sampling_strategy=sampling_strategy
     )
 
     # 8. Ensemble: Stacking
@@ -329,7 +345,8 @@ def main():
     )
     trained['Stacking'] = run_model(
         'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
-        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA
+        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
+        sampling_strategy=sampling_strategy
     )
 
     # 9. Avaliação final no teste
