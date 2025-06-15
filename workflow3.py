@@ -102,13 +102,23 @@ def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
     return strategy
 
 
+class DynamicSamplingStrategy:
+    """Callable usado para ajustar a estrategia de amostragem dinamicamente."""
+
+    def __init__(self, desired):
+        self.desired = desired
+
+    def __call__(self, y):
+        return compute_sampling_strategy(y, desired=self.desired)
+
+
 def make_pipeline(estimator, sampling_strategy):
     """Cria pipeline com RandomUnderSampler que ajusta o alvo em cada ``fit``."""
 
-    def strategy(y):
-        return compute_sampling_strategy(y, desired=sampling_strategy)
-
-    rus = RandomUnderSampler(sampling_strategy=strategy, random_state=42)
+    rus = RandomUnderSampler(
+        sampling_strategy=DynamicSamplingStrategy(sampling_strategy),
+        random_state=42
+    )
     return Pipeline([
         ('undersample', rus),
         ('scaler', StandardScaler()),
