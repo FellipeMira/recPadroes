@@ -8,6 +8,7 @@ A seleção de atributos agora utiliza o algoritmo Sequential Forward Floating S
 Além disso, o workflow aplica redução de dimensionalidade via PCA antes do
 ajuste dos modelos.
 
-O balanceamento das classes agora utiliza o `RandomUnderSampler` da
-biblioteca *imbalanced-learn*, reduzindo a maioria para 30.000 instâncias
-e mantendo 38.694 e 3.452 amostras nas demais classes.
+O balanceamento das classes utiliza o `RandomUnderSampler` da
+biblioteca *imbalanced-learn*. Os valores-alvo (30.000, 38.694 e 3.452
+amostras) são ajustados automaticamente para nunca exceder o número de
+amostras disponíveis após a divisão do conjunto de treino.
