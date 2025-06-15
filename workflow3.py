@@ -311,7 +311,7 @@ def main():
         cv=skf, n_jobs=-1
     )
     trained['Stacking'] = run_model(
-        'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
+        'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
         sampling_strategy=sampling_strategy
     )
@@ -358,7 +358,7 @@ def main():
         cv=skf, n_jobs=-1
     )
     trained['Stacking'] = run_model(
-        'Stacking', stack, {'model__final_estimator__C': np.logspace(-2,1,10)},
+        'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
         sampling_strategy=sampling_strategy
     )
