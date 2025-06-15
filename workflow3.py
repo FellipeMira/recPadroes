@@ -93,8 +93,8 @@ SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
 
 
 def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
-    """Retorna uma estratégia de amostragem sem exceder o número disponível."""
-    counts = y.value_counts().to_dict()
+    """Retorna estratégia sem exceder o número disponível em ``y``."""
+    counts = pd.Series(y).value_counts().to_dict()
     strategy = {}
     for cls, count in counts.items():
         target = desired.get(cls, count)
@@ -103,8 +103,12 @@ def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
 
 
 def make_pipeline(estimator, sampling_strategy):
-    """Cria um pipeline com RandomUnderSampler para balancear os dados."""
-    rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
+    """Cria pipeline com RandomUnderSampler que ajusta o alvo em cada ``fit``."""
+
+    def strategy(y):
+        return compute_sampling_strategy(y, desired=sampling_strategy)
+
+    rus = RandomUnderSampler(sampling_strategy=strategy, random_state=42)
     return Pipeline([
         ('undersample', rus),
         ('scaler', StandardScaler()),
