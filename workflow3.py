@@ -21,7 +21,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
 from imblearn.pipeline import Pipeline
-from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.decomposition import PCA
 
 from sffs import sffs
@@ -89,10 +89,14 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
     return X_train_p, X_test_p, X_full_p
 
 
+SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
+
+
 def make_pipeline(estimator):
-    """Cria um pipeline com amostragem para dados desbalanceados."""
+    """Cria um pipeline com RandomUnderSampler para balancear os dados."""
+    rus = RandomUnderSampler(sampling_strategy=SAMPLING_STRATEGY, random_state=42)
     return Pipeline([
-        ('smote', SMOTE(random_state=42, sampling_strategy='not majority')),
+        ('undersample', rus),
         ('scaler', StandardScaler()),
         ('model', estimator),
     ])
