@@ -194,7 +194,10 @@ def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
         probs = mdl.predict_proba(X_full)
         df_out[f'pred_{name}'] = preds
         # adicionar uma coluna de probabilidade por classe
-        classes = mdl.named_steps['model'].classes_
+        if hasattr(mdl, 'named_steps'):
+            classes = mdl.named_steps['model'].classes_
+        else:
+            classes = mdl.classes_
         for idx, cls in enumerate(classes):
             df_out[f'prob_{cls}_{name}'] = probs[:, idx]
 
