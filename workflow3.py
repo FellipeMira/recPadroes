@@ -20,6 +20,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
+from sklearn.base import BaseEstimator, ClassifierMixin
 from imblearn.pipeline import Pipeline
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.decomposition import PCA
@@ -206,23 +207,31 @@ def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
 
 
 def build_rbf_classifier():
-    """Retorna um pipeline encapsulando o RBF customizado."""
-    class RBFClassifier:
+    """Retorna o classificador RBF customizado."""
+
+    class RBFClassifier(BaseEstimator, ClassifierMixin):
         def __init__(self, n_clusters=10, rbf_gamma=1.0, solver='lbfgs', max_iter=1000):
             self.n_clusters = n_clusters
             self.rbf_gamma = rbf_gamma
-            self.kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-            self.logreg = LogisticRegression(solver=solver, max_iter=max_iter, random_state=42)
+            self.solver = solver
+            self.max_iter = max_iter
+
+        def _check_X(self, X):
+            if isinstance(X, pd.DataFrame):
+                return X.values
+            return np.asarray(X)
 
         def _rbf(self, X):
-            X = pd.DataFrame(X, columns=self.feature_names_)
+            X = self._check_X(X)
             d = self.kmeans.transform(X)
             return np.exp(-self.rbf_gamma * d**2)
 
         def fit(self, X, y):
-            self.feature_names_ = X.columns
+            X = self._check_X(X)
+            self.kmeans = KMeans(n_clusters=self.n_clusters, random_state=42, n_init=10)
             self.kmeans.fit(X)
             Z = self._rbf(X)
+            self.logreg = LogisticRegression(solver=self.solver, max_iter=self.max_iter, random_state=42)
             self.logreg.fit(Z, y)
             return self
 
@@ -234,8 +243,7 @@ def build_rbf_classifier():
             Z = self._rbf(X)
             return self.logreg.predict_proba(Z)
 
-    # inserir no pipeline a mesma sequência de pré-processamento
-    return make_pipeline(RBFClassifier())
+    return RBFClassifier()
 
 
 def main():
@@ -287,7 +295,9 @@ def main():
         'AdaBoost':   (AdaBoostClassifier(random_state=42),
                        {'model__n_estimators': np.arange(50,200,25)}),
         'GNB':        (GaussianNB(), {}),
-        #'RBF-Net':    (build_rbf_classifier(), {'model__n_clusters': [10,20], 'model__rbf_gamma': [0.1,1.0]})
+        'RBF-Net':    (build_rbf_classifier(),
+                       {'model__n_clusters': [10,20],
+                        'model__rbf_gamma': [0.1,1.0]})
     }
 
     # 6. Treina e otimiza modelos
