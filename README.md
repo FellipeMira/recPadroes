@@ -9,7 +9,7 @@ Além disso, o workflow aplica redução de dimensionalidade via PCA antes do
 ajuste dos modelos.
 
 O script inclui também uma implementação simplificada de um classificador do
-tipo *RBF Network*, baseado em K-Means e regressão logística, que é otimizado
+tipo *RBF Network*, baseado em K-Means e solução analítica via pseudoinversa, que é otimizado
 junto aos demais modelos.
 
 O balanceamento das classes pode ser feito por `RandomUnderSampler` ou

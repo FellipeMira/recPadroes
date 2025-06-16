@@ -228,43 +228,118 @@ def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
     print(f"Predições completas salvas em {output_csv}")
 
 
+# Funções auxiliares para a RBF Network
+
+def init_kmeans(data, k, epsilon):
+    """Obtém centros e variâncias usando um K-Means simplificado."""
+    m, dim = data.shape
+    rand_pos = np.random.randint(0, m, k)
+    cent = data[rand_pos, :].copy()
+    prev = cent.copy()
+    dist = np.zeros(k)
+    it = 0
+    while True:
+        count = np.zeros(k)
+        acc = np.zeros_like(cent)
+        for i in range(m):
+            for j in range(k):
+                dist[j] = np.linalg.norm(prev[j, :] - data[i, :])
+            idx = np.argmin(dist)
+            acc[idx] += data[i, :]
+            count[idx] += 1
+        for j in range(k):
+            if count[j] > 0:
+                cent[j, :] = acc[j] / count[j]
+        desloc = np.linalg.norm(cent - prev)
+        it += 1
+        if desloc < epsilon or it > 1000:
+            break
+        prev = cent.copy()
+    campos = np.ones(k)
+    count_campos = np.zeros(k)
+    for i in range(m):
+        for j in range(k):
+            dist[j] = np.linalg.norm(cent[j, :] - data[i, :])
+        idx = np.argmin(dist)
+        count_campos[idx] += 1
+        campos[idx] += np.linalg.norm(cent[idx, :] - data[i, :])
+    for j in range(k):
+        campos[j] /= (count_campos[j] + 1)
+    return cent, campos
+
+
+def expected_output(y):
+    """Converte rótulos em representação vetorial."""
+    uy = np.unique(y)
+    nclass = uy.size
+    m = y.shape[0]
+    vecY = np.zeros((nclass, m))
+    for i in range(m):
+        pos = np.where(uy == y[i])
+        vecY[pos, i] = 1
+    return vecY
+
+
+def map_rbf(x, mu, sig):
+    m = x.shape[0]
+    k = mu.shape[0]
+    mappedX = np.empty((m, k))
+    for i in range(m):
+        for j in range(k):
+            mappedX[i, j] = np.exp(-(np.linalg.norm(x[i, :] - mu[j, :]) ** 2) / (2 * (sig[j] ** 2)))
+    return mappedX
+
+
+def train_rbf_net(x, y, k, epsilon):
+    codeY = expected_output(y)
+    cent, campo = init_kmeans(x, k, epsilon)
+    mapX = map_rbf(x, cent, campo)
+    A = mapX.T @ mapX
+    W = np.linalg.inv(A) @ mapX.T @ codeY.T
+    return W, cent, campo
+
+
+class RBFClassifier(BaseEstimator, ClassifierMixin):
+    """Classificador RBF simples com treinamento analítico."""
+
+    def __init__(self, n_clusters=10, epsilon=1e-2):
+        self.n_clusters = n_clusters
+        self.epsilon = epsilon
+
+    def _check_X(self, X):
+        if isinstance(X, pd.DataFrame):
+            return X.values
+        return np.asarray(X)
+
+    def fit(self, X, y):
+        X = self._check_X(X)
+        y = np.asarray(y)
+        self.classes_ = np.unique(y)
+        self.W_, self.centers_, self.sigmas_ = train_rbf_net(X, y, self.n_clusters, self.epsilon)
+        return self
+
+    def _rbf(self, X):
+        return map_rbf(X, self.centers_, self.sigmas_)
+
+    def predict(self, X):
+        X = self._check_X(X)
+        Z = self._rbf(X)
+        scores = Z @ self.W_
+        idx = np.argmax(scores, axis=1)
+        return self.classes_[idx]
+
+    def predict_proba(self, X):
+        X = self._check_X(X)
+        Z = self._rbf(X)
+        scores = Z @ self.W_
+        scores -= scores.max(axis=1, keepdims=True)
+        exp_s = np.exp(scores)
+        return exp_s / exp_s.sum(axis=1, keepdims=True)
+
+
+
 def build_rbf_classifier():
-    """Retorna o classificador RBF customizado."""
-
-    class RBFClassifier(BaseEstimator, ClassifierMixin):
-        def __init__(self, n_clusters=10, rbf_gamma=1.0, solver='lbfgs', max_iter=1000):
-            self.n_clusters = n_clusters
-            self.rbf_gamma = rbf_gamma
-            self.solver = solver
-            self.max_iter = max_iter
-
-        def _check_X(self, X):
-            if isinstance(X, pd.DataFrame):
-                return X.values
-            return np.asarray(X)
-
-        def _rbf(self, X):
-            X = self._check_X(X)
-            d = self.kmeans.transform(X)
-            return np.exp(-self.rbf_gamma * d**2)
-
-        def fit(self, X, y):
-            X = self._check_X(X)
-            self.kmeans = KMeans(n_clusters=self.n_clusters, random_state=42, n_init=10)
-            self.kmeans.fit(X)
-            Z = self._rbf(X)
-            self.logreg = LogisticRegression(solver=self.solver, max_iter=self.max_iter, random_state=42)
-            self.logreg.fit(Z, y)
-            return self
-
-        def predict(self, X):
-            Z = self._rbf(X)
-            return self.logreg.predict(Z)
-
-        def predict_proba(self, X):
-            Z = self._rbf(X)
-            return self.logreg.predict_proba(Z)
-
+    """Retorna uma instância do ``RBFClassifier``."""
     return RBFClassifier()
 
 
@@ -321,7 +396,7 @@ def main():
         'GNB':        (GaussianNB(), {}),
         'RBF-Net':    (build_rbf_classifier(),
                        {'model__n_clusters': [10,20],
-                        'model__rbf_gamma': [0.1,1.0]})
+                        'model__epsilon': [0.01,0.1]})
     }
 
     # 6. Treina e otimiza modelos
