@@ -17,5 +17,6 @@ O balanceamento das classes pode ser feito por `RandomUnderSampler` ou
 38.694 e 3.452 amostras) são ajustados automaticamente para nunca exceder o
 número de amostras disponíveis após a divisão do conjunto de treino no caso de
 subamostragem.
+
 Para definir qual deles será usado, altere a variável `SAMPLER_TYPE` em
 `workflow3.py` para `"under"` ou `"smote"`.
