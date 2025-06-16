@@ -12,7 +12,10 @@ O script inclui também uma implementação simplificada de um classificador do
 tipo *RBF Network*, baseado em K-Means e regressão logística, que é otimizado
 junto aos demais modelos.
 
-O balanceamento das classes utiliza o `RandomUnderSampler` da
-biblioteca *imbalanced-learn*. Os valores-alvo (30.000, 38.694 e 3.452
-amostras) são ajustados automaticamente para nunca exceder o número de
-amostras disponíveis após a divisão do conjunto de treino.
+O balanceamento das classes pode ser feito por `RandomUnderSampler` ou
+`SMOTE`, ambos da biblioteca *imbalanced-learn*. Os valores-alvo (30.000,
+38.694 e 3.452 amostras) são ajustados automaticamente para nunca exceder o
+número de amostras disponíveis após a divisão do conjunto de treino no caso de
+subamostragem.
+Para definir qual deles será usado, altere a variável `SAMPLER_TYPE` em
+`workflow3.py` para `"under"` ou `"smote"`.

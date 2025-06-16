@@ -23,6 +23,7 @@ from sklearn.cluster import KMeans
 from sklearn.base import BaseEstimator, ClassifierMixin
 from imblearn.pipeline import Pipeline
 from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
 
 from sffs import sffs
@@ -91,6 +92,7 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
 
 
 SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
+SAMPLER_TYPE = 'under'  # "under" ou "smote"
 
 
 def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
@@ -113,31 +115,40 @@ class DynamicSamplingStrategy:
         return compute_sampling_strategy(y, desired=self.desired)
 
 
-def make_pipeline(estimator, sampling_strategy):
-    """Cria pipeline com RandomUnderSampler que ajusta o alvo em cada ``fit``."""
+def make_pipeline(estimator, sampling_strategy, sampler_type='under'):
+    """Cria pipeline com escolha de amostragem SMOTE ou RandomUnderSampler."""
 
-    rus = RandomUnderSampler(
-        sampling_strategy=DynamicSamplingStrategy(sampling_strategy),
-        random_state=42
-    )
+    if sampler_type == 'smote':
+        sampler = SMOTE(sampling_strategy=sampling_strategy, random_state=42)
+    else:
+        sampler = RandomUnderSampler(
+            sampling_strategy=DynamicSamplingStrategy(sampling_strategy),
+            random_state=42
+        )
+
     return Pipeline([
-        ('undersample', rus),
+        ('sampler', sampler),
         ('scaler', StandardScaler()),
         ('model', estimator),
     ])
 
 
 def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter,
-              model_dir="model", sampling_strategy=SAMPLING_STRATEGY):
-    """
-    Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
+              model_dir="model", sampling_strategy=SAMPLING_STRATEGY,
+              sampler_type='under'):
+    """Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
+
+    Parameters
+    ----------
+    sampler_type : str
+        "under" usa ``RandomUnderSampler``; "smote" usa ``SMOTE``.
     """
     print(f"\n>>> Otimizando {name}")
     # Evita empilhar pipelines já pré-processados
     if isinstance(estimator, Pipeline) or isinstance(estimator, StackingClassifier):
         pipe = estimator
     else:
-        pipe = make_pipeline(estimator, sampling_strategy)
+        pipe = make_pipeline(estimator, sampling_strategy, sampler_type)
 
 
     rs = RandomizedSearchCV(
@@ -255,7 +266,10 @@ def main():
     # 2. Divide treino/teste
     X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
 
-    sampling_strategy = compute_sampling_strategy(y_train)
+    if SAMPLER_TYPE == 'smote':
+        sampling_strategy = SAMPLING_STRATEGY
+    else:
+        sampling_strategy = compute_sampling_strategy(y_train)
 
     # 3. Seleção de atributos (SFFS) e PCA
     print("\n>>> Selecionando atributos (SFFS)")
@@ -305,7 +319,8 @@ def main():
     for name, (est, params) in models.items():
         trained[name] = run_model(
             name, est, params, X_train, y_train, skf, scorers, n_iter,
-            model_dir=MODEL_DIR, sampling_strategy=sampling_strategy
+            model_dir=MODEL_DIR, sampling_strategy=sampling_strategy,
+            sampler_type=SAMPLER_TYPE
         )
 
     # 7. Ensemble: Bagging
@@ -314,7 +329,7 @@ def main():
     trained['Bagging'] = run_model(
         'Bagging', bag, {'model__n_estimators': [10,20,30]},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
-        sampling_strategy=sampling_strategy
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
     )
 
     # 8. Ensemble: Stacking
@@ -326,7 +341,7 @@ def main():
     trained['Stacking'] = run_model(
         'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
-        sampling_strategy=sampling_strategy
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
     )
 
     # 9. Avaliação final no teste
@@ -352,7 +367,8 @@ def main():
     for name, (est, params) in models.items():
         trained[name] = run_model(
             name, est, params, X_train, y_train, skf, scorers, n_iter,
-            model_dir=MODEL_DIR_PCA, sampling_strategy=sampling_strategy
+            model_dir=MODEL_DIR_PCA, sampling_strategy=sampling_strategy,
+            sampler_type=SAMPLER_TYPE
         )
 
     # 7. Ensemble: Bagging
@@ -361,7 +377,7 @@ def main():
     trained['Bagging'] = run_model(
         'Bagging', bag, {'model__n_estimators': [10,20,30]},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
-        sampling_strategy=sampling_strategy
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
     )
 
     # 8. Ensemble: Stacking
@@ -373,7 +389,7 @@ def main():
     trained['Stacking'] = run_model(
         'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
-        sampling_strategy=sampling_strategy
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
     )
 
     # 9. Avaliação final no teste
