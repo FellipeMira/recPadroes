@@ -97,6 +97,7 @@ SAMPLER_TYPE = 'under'  # "under" ou "smote"
 
 def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
     """Retorna estratégia sem exceder o número disponível em ``y``."""
+
     counts = pd.Series(y).value_counts().to_dict()
     strategy = {}
     for cls, count in counts.items():
@@ -119,7 +120,10 @@ def make_pipeline(estimator, sampling_strategy, sampler_type='under'):
     """Cria pipeline com escolha de amostragem SMOTE ou RandomUnderSampler."""
 
     if sampler_type == 'smote':
-        sampler = SMOTE(sampling_strategy=sampling_strategy, random_state=42)
+        if sampling_strategy is None:
+            sampler = SMOTE(random_state=42)
+        else:
+            sampler = SMOTE(sampling_strategy=sampling_strategy, random_state=42)
     else:
         sampler = RandomUnderSampler(
             sampling_strategy=DynamicSamplingStrategy(sampling_strategy),
@@ -267,7 +271,7 @@ def main():
     X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
 
     if SAMPLER_TYPE == 'smote':
-        sampling_strategy = SAMPLING_STRATEGY
+        sampling_strategy = None
     else:
         sampling_strategy = compute_sampling_strategy(y_train)
 
