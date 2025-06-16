@@ -37,12 +37,22 @@ ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT, "model")
 MODEL_DIR_PCA = r"/home/mira/recPadroes/model_dir_2"
 
+# Parâmetros de configuração
+SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
+SAMPLER_TYPE = 'smote'  # "under" ou "smote"
+fold = 5
+n_iter = 25
+
 
 def load_data(path: str):
-    """Carrega e prepara o DataFrame, mapeando labels."""
+    """Carrega e prepara o DataFrame selecionando colunas automaticamente."""
     df = pd.read_parquet(path)
-    df = df.iloc[:, 3:32].copy()
-    df = df.rename(columns={df.columns[28]: 'label'})
+
+    label_col = 'pseudosamples_rho2'
+    feature_cols = [c for c in df.columns if c.endswith('_VV') or c.endswith('_VH')]
+
+    df = df[feature_cols + [label_col]].copy()
+    df = df.rename(columns={label_col: 'label'})
     # mapeamento de -1,0,1 para 0,1,2
     df['label'] = df['label'].map({-1: 0, 0: 1, 1: 2})
     return df
@@ -90,9 +100,6 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
     print(f"PCA manteve {pca.n_components_} componentes")
     return X_train_p, X_test_p, X_full_p
 
-
-SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
-SAMPLER_TYPE = 'under'  # "under" ou "smote"
 
 
 def compute_sampling_strategy(y, desired=SAMPLING_STRATEGY):
@@ -283,7 +290,7 @@ def main():
     X_full = X_full[selected_cols]
 
     # 4. CV e métricas
-    skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=123)
+    skf = StratifiedKFold(n_splits=fold, shuffle=True, random_state=123)
     scorers = {
         'accuracy': make_scorer(accuracy_score),
         'f1_macro': make_scorer(f1_score, average='macro'),
@@ -292,7 +299,6 @@ def main():
         'precision_macro': make_scorer(precision_score, average='macro'),
         'kappa': make_scorer(cohen_kappa_score)
     }
-    n_iter = 5
 
     # 5. Define modelos e parâmetros
     models = {
