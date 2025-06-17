@@ -30,18 +30,19 @@ from sffs import sffs
 import warnings
 from joblib import Memory, dump
 
-#memory = Memory(location='cache_dir', verbose=1)
-
 warnings.filterwarnings('ignore')
-ROOT = os.getcwd()
-MODEL_DIR = os.path.join(ROOT, "model")
-MODEL_DIR_PCA = r"/home/mira/recPadroes/model_dir_2"
+
 
 # Parâmetros de configuração
-SAMPLING_STRATEGY = {0: 3452, 1: 30000, 2: 38694}
-SAMPLER_TYPE = 'smote'  # "under" ou "smote"
-fold = 5
-n_iter = 25
+SAMPLING_STRATEGY = {0: 3452, 1: 3452, 2: 3452}
+SAMPLER_TYPE = 'under'  # "under" ou "smote"
+fold = 4
+n_iter = 10
+ROI = 'PA'
+
+ROOT = os.getcwd()
+MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
+MODEL_DIR_PCA = fr"/home/mira/recPadroes/model_PCA_{ROI}"
 
 
 def load_data(path: str):
@@ -54,7 +55,7 @@ def load_data(path: str):
     df = df[feature_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
     # mapeamento de -1,0,1 para 0,1,2
-    df['label'] = df['label'].map({-1: 0, 0: 1, 1: 2})
+    df['label'] = df['label'].map({-1: 0, 0: 1, 1: 2}) # remover azero
     return df
 
 
@@ -196,8 +197,8 @@ def evaluate_on_test(trained: dict, X_test, y_test):
 
 
 def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
-                      top_n: int = 3,
-                      output_csv: str = 'full_predictions_top3.csv'):
+                      top_n: int = 10,
+                      output_csv: str = 'full_predictions_top10.csv'):
     """
     Gera predict/predict_proba para os ``top_n`` modelos (ordenados pelo
     ``F1_Macro`` obtido no conjunto de teste) sobre o dataset completo,
@@ -345,7 +346,7 @@ def build_rbf_classifier():
 
 def main():
     # 1. Carrega dados
-    path = os.path.join(ROOT, 'df_tk.parquet')
+    path = os.path.join(ROOT, 'df_pa.parquet')
     df = load_data(path)
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
 
@@ -435,10 +436,10 @@ def main():
     print(df_test_eval.sort_values('F1_Macro', ascending=False).to_string(index=False))
 
     # salvar métricas de teste
-    df_test_eval.to_csv('model_performance_test_SFFS.csv', index=False)
+    df_test_eval.to_csv(f'model_performance_test_SFFS_{ROI}.csv', index=False)
 
     # 10. Predições finais no dataset completo
-    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=3)
+    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=10, output_csv=f'full_predictions_top10_SFFS_{ROI}.csv')
 
     
     # PCA
@@ -483,10 +484,10 @@ def main():
     print(df_test_eval.sort_values('F1_Macro', ascending=False).to_string(index=False))
 
     # salvar métricas de teste
-    df_test_eval.to_csv('model_performance_test_PCA.csv', index=False)
+    df_test_eval.to_csv(f'model_performance_test_PCA_{ROI}.csv', index=False)
 
     # 10. Predições finais no dataset completo
-    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=3)
+    final_predictions(df, X_full, y_full, X_test, y_test, trained, top_n=10, output_csv=f'full_predictions_top10_PCA_{ROI}.csv')
 
     print("\n>>> Script concluído!")
 
