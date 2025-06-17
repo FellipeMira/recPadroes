@@ -38,7 +38,8 @@ SAMPLING_STRATEGY = {0: 3452, 1: 3452, 2: 3452}
 SAMPLER_TYPE = 'under'  # "under" ou "smote"
 fold = 4
 n_iter = 10
-ROI = 'PA'
+file =  'df_tk.parquet'
+ROI = 'TK'
 
 ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
@@ -346,7 +347,7 @@ def build_rbf_classifier():
 
 def main():
     # 1. Carrega dados
-    path = os.path.join(ROOT, 'df_pa.parquet')
+    path = os.path.join(ROOT, file)
     df = load_data(path)
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
 
