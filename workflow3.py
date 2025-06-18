@@ -34,16 +34,22 @@ warnings.filterwarnings('ignore')
 
 
 # Parâmetros de configuração
-SAMPLING_STRATEGY = {0: 3452, 1: 3452, 2: 3452}
 SAMPLER_TYPE = 'under'  # "under" ou "smote"
-fold = 4
-n_iter = 10
-file =  'df_tk.parquet'
-ROI = 'TK'
+fold = 5
+n_iter = 40
+file =  'df_pa.parquet'
+ROI = 'PA'
 
+if ROI == 'PA':
+    SAMPLING_STRATEGY = {0: 33993, 1: 33993, 2: 33993}  # PA
+elif ROI == 'TK':
+    SAMPLING_STRATEGY = {0: 3452, 1: 3452, 2: 3452}
+    
 ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
 MODEL_DIR_PCA = fr"/home/mira/recPadroes/model_PCA_{ROI}"
+
+print(f"\tUsando estratégia de amostragem {ROI}: \n\t{SAMPLING_STRATEGY}")
 
 
 def load_data(path: str):
