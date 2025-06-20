@@ -13,10 +13,10 @@ tipo *RBF Network*, baseado em K-Means e solução analítica via pseudoinversa,
 junto aos demais modelos.
 
 O balanceamento das classes pode ser feito por `RandomUnderSampler` ou
-`SMOTE`, ambos da biblioteca *imbalanced-learn*. Os valores-alvo (30.000,
-38.694 e 3.452 amostras) são ajustados automaticamente para nunca exceder o
-número de amostras disponíveis após a divisão do conjunto de treino no caso de
-subamostragem.
+`SMOTE`, ambos da biblioteca *imbalanced-learn*. Os valores-alvo (33.993
+ou 3.452 amostras, dependendo da região) são ajustados automaticamente para
+nunca exceder o número de amostras disponíveis após a divisão do conjunto de
+treino no caso de subamostragem.
 
 Para definir qual deles será usado, altere a variável `SAMPLER_TYPE` em
 `workflow3.py` para `"under"` ou `"smote"`.
