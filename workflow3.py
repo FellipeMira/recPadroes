@@ -206,24 +206,31 @@ def evaluate_on_test(trained: dict, X_test, y_test):
 def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
                       top_n: int = 10,
                       output_csv: str = 'full_predictions_top10.csv'):
-    """Gera predições dos ``top_n`` modelos sobre todo o dataset.
-
-    O CSV final contém apenas o rótulo verdadeiro e as colunas de ``predict``
-    de cada modelo, sem as probabilidades e sem as variáveis preditoras para
-    reduzir o tamanho do arquivo.
+    """
+    Gera predict/predict_proba para os ``top_n`` modelos (ordenados pelo
+    ``F1_Macro`` obtido no conjunto de teste) sobre o dataset completo,
+    anexa colunas ao ``df_full`` e salva CSV.
     """
     # Recarregar avaliação de teste para ordenar
     test_df = evaluate_on_test(trained, X_test, y_test)
     top_models = test_df.sort_values('F1_Macro', ascending=False).head(top_n)['Model'].tolist()
     print(f"\nTop {top_n} modelos: {top_models}")
 
-    df_out = pd.DataFrame(index=df_full.index)
-    df_out['true_label'] = df_full['label']
+    df_out = df_full.copy()
+    df_out['true_label'] = df_out['label']
 
     for name in top_models:
         mdl = trained[name]
         preds = mdl.predict(X_full)
+        probs = mdl.predict_proba(X_full)
         df_out[f'pred_{name}'] = preds
+        # adicionar uma coluna de probabilidade por classe
+        if hasattr(mdl, 'named_steps'):
+            classes = mdl.named_steps['model'].classes_
+        else:
+            classes = mdl.classes_
+        for idx, cls in enumerate(classes):
+            df_out[f'prob_{cls}_{name}'] = probs[:, idx]
 
     df_out.to_csv(output_csv, index=False)
     print(f"Predições completas salvas em {output_csv}")
