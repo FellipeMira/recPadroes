@@ -41,9 +41,9 @@ file =  'df_pa.parquet'
 ROI = 'PA'
 
 if ROI == 'PA':
-    SAMPLING_STRATEGY = {0: 33993, 1: 33993, 2: 33993}  # PA
+    SAMPLING_STRATEGY = {0: 33993, 1: 33993}  # PA - classificacao binaria
 elif ROI == 'TK':
-    SAMPLING_STRATEGY = {0: 3452, 1: 3452, 2: 3452}
+    SAMPLING_STRATEGY = {0: 3452, 1: 3452}
     
 ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
@@ -61,8 +61,8 @@ def load_data(path: str):
 
     df = df[feature_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
-    # mapeamento de -1,0,1 para 0,1,2
-    df['label'] = df['label'].map({-1: 0, 0: 1, 1: 2}) # remover azero
+    # mapeamento de -1,0,1 para 1,0,0 (classificacao binaria)
+    df['label'] = df['label'].map({-1: 1, 1: 0, 0: 0})
     return df
 
 
