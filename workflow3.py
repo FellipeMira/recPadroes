@@ -39,6 +39,7 @@ fold = 5
 n_iter = 40
 file =  'df_pa.parquet'
 ROI = 'PA'
+COORD_COLS = ('X', 'Y')
 
 if ROI == 'PA':
     SAMPLING_STRATEGY = {0: 33993, 1: 33993}  # PA - classificacao binaria
@@ -59,7 +60,9 @@ def load_data(path: str):
     label_col = 'pseudosamples_rho2'
     feature_cols = [c for c in df.columns if c.endswith('_VV') or c.endswith('_VH')]
 
-    df = df[feature_cols + [label_col]].copy()
+    coord_cols = [c for c in COORD_COLS if c in df.columns]
+
+    df = df[feature_cols + coord_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
     # mapeamento de -1,0,1 para 1,0,0 (classificacao binaria)
     df['label'] = df['label'].map({-1: 1, 1: 0, 0: 0})
@@ -68,7 +71,8 @@ def load_data(path: str):
 
 def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42):
     """Divide df em treino e teste estratificados."""
-    X = df.drop('label', axis=1)
+    coord_cols = [c for c in COORD_COLS if c in df.columns]
+    X = df.drop(['label'] + coord_cols, axis=1)
     y = df['label']
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, stratify=y, random_state=random_state
@@ -207,24 +211,22 @@ def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
                       top_n: int = 10,
                       output_csv: str = 'full_predictions_top10.csv'):
     """
-    Gera predict/predict_proba para os ``top_n`` modelos (ordenados pelo
-    ``F1_Macro`` obtido no conjunto de teste) sobre o dataset completo,
-    anexa colunas ao ``df_full`` e salva CSV.
+    Gera predict_proba para os ``top_n`` modelos (ordenados pelo
+    ``F1_Macro`` obtido no conjunto de teste) sobre o dataset completo e
+    salva apenas as probabilidades por classe juntamente com as
+    coordenadas ``X`` e ``Y`` se existirem.
     """
     # Recarregar avaliação de teste para ordenar
     test_df = evaluate_on_test(trained, X_test, y_test)
     top_models = test_df.sort_values('F1_Macro', ascending=False).head(top_n)['Model'].tolist()
     print(f"\nTop {top_n} modelos: {top_models}")
 
-    df_out = df_full.copy()
-    df_out['true_label'] = df_out['label']
+    coord_cols = [c for c in COORD_COLS if c in df_full.columns]
+    df_out = df_full[coord_cols].copy()
 
     for name in top_models:
         mdl = trained[name]
-        preds = mdl.predict(X_full)
         probs = mdl.predict_proba(X_full)
-        df_out[f'pred_{name}'] = preds
-        # adicionar uma coluna de probabilidade por classe
         if hasattr(mdl, 'named_steps'):
             classes = mdl.named_steps['model'].classes_
         else:
