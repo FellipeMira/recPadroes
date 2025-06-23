@@ -25,7 +25,7 @@ from imblearn.pipeline import Pipeline
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
-from scipy.stats import loguniform, randint
+from scipy.stats import loguniform, randint, expon
 
 from sffs import sffs
 import warnings
@@ -37,12 +37,12 @@ warnings.filterwarnings('ignore')
 # Parâmetros de configuração
 SAMPLER_TYPE = 'under'  # "under" ou "smote"
 fold=5
-n_iter=40
+n_iter=5
 file='df_pa.parquet'
 ROI='PA'
 
 if ROI == 'PA':
-    SAMPLING_STRATEGY = {0: 31000, 1: 31000}  # classificacao binaria
+    SAMPLING_STRATEGY = {0: 25000, 1: 25000}  # classificacao binaria
 elif ROI == 'TK':
     SAMPLING_STRATEGY = {0: 3452, 1: 4000}
     
@@ -388,48 +388,52 @@ def main():
     models = {
         'SVM-Linear': (
             SVC(kernel='linear', probability=True, random_state=42),
-            {'model__C': loguniform(1e-3, 1e2)}
+            {
+                'model__C': expon(scale=100),
+                'model__gamma': expon(scale=.1)
+            }
         ),
         'SVM-RBF': (
             SVC(kernel='rbf', probability=True, random_state=42),
             {
-                'model__C': loguniform(1e-3, 1e2),
-                'model__gamma': loguniform(1e-4, 1e0)
+                'model__C': expon(scale=100),
+                'model__gamma': expon(scale=.1)
             }
         ),
         'KNN': (
             KNeighborsClassifier(),
-            {'model__n_neighbors': randint(1, 51)}
+            {'model__n_neighbors': randint(1, 31)}
         ),
         'RF': (
             RandomForestClassifier(random_state=42),
             {
-                'model__n_estimators': randint(100, 1001),
-                'model__max_depth': [None] + list(range(5, 51, 5)),
+                'model__n_estimators': randint(10, 600),
+                'model__max_depth': [None] + list(range(5, 41, 5)),
                 'model__max_features': ['auto','sqrt','log2']
             }
         ),
         'MLP': (
-            MLPClassifier(max_iter=2000, random_state=42),
+            MLPClassifier(max_iter=1000, random_state=42),
             {
-                'model__hidden_layer_sizes': [(50,), (100,), (50,25), (100,50)],
-                'model__alpha': loguniform(1e-6, 1e-2),
-                'model__learning_rate_init': loguniform(1e-4,1e-1),
-                'model__activation': ['relu', 'tanh']
+                'model__hidden_layer_sizes': [((64, 32), (128, 64),(64, 32, 16), (128, 64, 32))],
+                'model__alpha': 10.0 ** -np.arange(1, 5),
+                'model__learning_rate_init': [0.01, 0.001, 0.005],
+                'model__activation': ['relu', 'tanh', 'logistic']
             }
         ),
         'AdaBoost': (
             AdaBoostClassifier(random_state=42),
             {
-                'model__n_estimators': randint(50, 501),
-                'model__learning_rate': loguniform(1e-3, 1e0)
+                'model__n_estimators': randint(50, 301),
+                'model__learning_rate': [0.01, 0.001, 0.0001]
             }
         ),
-        'GNB': (GaussianNB(), {}),
+        'GNB': (GaussianNB(), 
+                {'model__var_smoothing': [1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12, 1e-13, 1e-14, 1e-15]}),
         'RBF-Net': (
             build_rbf_classifier(),
             {
-                'model__n_clusters': randint(5,101),
+                'model__n_clusters': randint(5, 61),
                 'model__epsilon': loguniform(1e-4,1e-1)
             }
         )
