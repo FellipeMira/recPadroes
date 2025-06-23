@@ -20,3 +20,8 @@ treino no caso de subamostragem.
 
 Para definir qual deles será usado, altere a variável `SAMPLER_TYPE` em
 `workflow3.py` para `"under"` ou `"smote"`.
+
+Para acelerar os modelos do scikit-learn, o script utiliza a biblioteca
+`scikit-learn-intelex` (importada via `sklearnex`). Caso ela não esteja
+instalada, execute `pip install scikit-learn-intelex` antes de rodar o
+workflow.
