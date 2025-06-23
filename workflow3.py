@@ -386,27 +386,32 @@ def main():
     }
 
     # 5. Define modelos e parâmetros
+    # Espaços de busca inspirados em ranges frequentemente utilizados na
+    # literatura para cada modelo
     models = {
         'SVM-Linear': (SVC(kernel='linear', probability=True, random_state=42),
-                       {'model__C': np.logspace(-2, 1, 10)}),
+                       {'model__C': np.logspace(-3, 3, 7)}),
         'SVM-RBF':    (SVC(kernel='rbf', probability=True, random_state=42),
-                       {'model__C': np.logspace(-2, 1, 10),
-                        'model__gamma': ['scale', 'auto'] + list(np.logspace(-4, 0, 5))}),
+                       {'model__C': np.logspace(-3, 3, 7),
+                        'model__gamma': np.logspace(-4, 1, 6)}),
         'KNN':        (KNeighborsClassifier(),
-                       {'model__n_neighbors': np.arange(3, 15, 2)}),
+                       {'model__n_neighbors': np.arange(1, 31, 2),
+                        'model__weights': ['uniform', 'distance']}),
         'RF':         (RandomForestClassifier(random_state=42),
-                       {'model__n_estimators': np.arange(100, 500, 50),
-                        'model__max_depth': [10,20,30,None]}),
+                       {'model__n_estimators': np.arange(100, 1001, 100),
+                        'model__max_depth': [None, 5, 10, 20, 30],
+                        'model__max_features': ['sqrt', 'log2', None]}),
         'MLP':        (MLPClassifier(max_iter=1000, random_state=42),
-                       {'model__hidden_layer_sizes': [(50,),(100,),(50,25)],
-                        'model__activation': ['relu','tanh'],
-                        'model__alpha': np.logspace(-5,-2,10)}),
+                       {'model__hidden_layer_sizes': [(50,), (100,), (50,50), (100,50), (100,100)],
+                        'model__activation': ['relu', 'tanh', 'logistic'],
+                        'model__alpha': np.logspace(-5, -1, 9)}),
         'AdaBoost':   (AdaBoostClassifier(random_state=42),
-                       {'model__n_estimators': np.arange(50,200,25)}),
+                       {'model__n_estimators': np.arange(50, 301, 50),
+                        'model__learning_rate': [0.01, 0.1, 1.0, 2.0]}),
         'GNB':        (GaussianNB(), {}),
         'RBF-Net':    (build_rbf_classifier(),
-                       {'model__n_clusters': [10,20],
-                        'model__epsilon': [0.01,0.1]})
+                       {'model__n_clusters': [10, 20, 30, 40, 50],
+                        'model__epsilon': [0.001, 0.01, 0.1, 1.0]})
     }
 
     # 6. Treina e otimiza modelos
