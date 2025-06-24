@@ -158,13 +158,15 @@ def make_pipeline(estimator, sampling_strategy, sampler_type='under'):
 
 def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter,
               model_dir="model", sampling_strategy=SAMPLING_STRATEGY,
-              sampler_type='under'):
-    """Ajusta RandomizedSearchCV e retorna o melhor pipeline treinado.
+              sampler_type='under', n_jobs=8):
+    """Ajusta ``RandomizedSearchCV`` e retorna o melhor pipeline treinado.
 
     Parameters
     ----------
     sampler_type : str
         "under" usa ``RandomUnderSampler``; "smote" usa ``SMOTE``.
+    n_jobs : int
+        Número de processos para ``RandomizedSearchCV``.
     """
     print(f"\n>>> Otimizando {name}")
     # Evita empilhar pipelines já pré-processados
@@ -177,7 +179,7 @@ def run_model(name, estimator, param_dist, X_train, y_train, cv, scorers, n_iter
     rs = RandomizedSearchCV(
         pipe, param_dist, n_iter=n_iter, cv=cv,
         scoring=scorers, refit='f1_macro',
-        random_state=42, verbose=3, n_jobs=8
+        random_state=42, verbose=3, n_jobs=n_jobs
     )
     rs.fit(X_train, y_train)
     print(f"{name} → f1_macro CV: {rs.best_score_:.4f}, params: {rs.best_params_}")
@@ -468,12 +470,13 @@ def main():
     stack = StackingClassifier(
         estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
-        cv=skf, n_jobs=-1
+        cv=skf, n_jobs=1
     )
     trained['Stacking'] = run_model(
         'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
-        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE,
+        n_jobs=1
     )
 
     # 9. Avaliação final no teste
@@ -516,12 +519,13 @@ def main():
     stack = StackingClassifier(
         estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
-        cv=skf, n_jobs=-1
+        cv=skf, n_jobs=1
     )
     trained['Stacking'] = run_model(
         'Stacking', stack, {'final_estimator__C': np.logspace(-2, 1, 10)},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR_PCA,
-        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
+        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE,
+        n_jobs=1
     )
 
     # 9. Avaliação final no teste
