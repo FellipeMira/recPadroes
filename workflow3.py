@@ -65,8 +65,9 @@ def load_data(path: str):
 
     df = df[feature_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
-    # mapeamento de -1,0,1 para 1,0,0 (classificacao binaria)
-    df['label'] = df['label'].map({-1: 1, 1: 0, 0: 0})
+    # remove registros rotulados como 0 e faz mapeamento -1 -> 1, 1 -> 0
+    df = df[df['label'] != 0]
+    df['label'] = df['label'].map({-1: 1, 1: 0})
     return df
 
 
@@ -110,7 +111,7 @@ def apply_pca(X_train, X_test, X_full, variance=0.95):
     X_test_p = pd.DataFrame(pca.transform(X_test_s), columns=cols, index=X_test.index)
     X_full_p = pd.DataFrame(pca.transform(X_full_s), columns=cols, index=X_full.index)
     print(f"PCA manteve {pca.n_components_} componentes")
-    return X_train_p, X_test_p, X_full_p
+    return X_train_p, X_test_p, X_full_p, scaler, pca
 
 
 
@@ -494,7 +495,7 @@ def main():
     # PCA
     print("\n>>> PCA dos atributos selecionados")
     pca_analysis(X_train)
-    X_train, X_test, X_full = apply_pca(X_train, X_test, X_full)    
+    X_train, X_test, X_full, _, _ = apply_pca(X_train, X_test, X_full)
     
 
     # 6. Treina e otimiza modelos

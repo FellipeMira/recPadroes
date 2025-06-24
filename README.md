@@ -21,6 +21,16 @@ treino no caso de subamostragem.
 Para definir qual deles será usado, altere a variável `SAMPLER_TYPE` em
 `workflow3.py` para `"under"` ou `"smote"`.
 
+O dataset utilizado possui rótulos `-1`, `0` e `1`. Agora os registros com rótulo
+`0` são descartados e o mapeamento passa a ser `{-1: 1, 1: 0}`.
+
+Dois scripts foram adicionados:
+
+* `train_models.py` – treina os modelos, salva cada um em `model_SFFS_*` e
+  `model_PCA_*` e grava as métricas de validação.
+* `predict_models.py` – carrega os modelos treinados, aplica as mesmas
+  transformações e gera um CSV com as previsões.
+
 Para acelerar os modelos do scikit-learn, o script utiliza a biblioteca
 `scikit-learn-intelex` (importada via `sklearnex`). Caso ela não esteja
 instalada, execute `pip install scikit-learn-intelex` antes de rodar o
