@@ -28,7 +28,7 @@ from imblearn.pipeline import Pipeline
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
-from scipy.stats import loguniform, randint, expon
+from scipy.stats import loguniform, randint, expon, uniform
 
 from sffs import sffs
 import warnings
@@ -392,15 +392,15 @@ def main():
         'SVM-Linear': (
             SVC(kernel='linear', probability=True, random_state=42),
             {
-                'model__C': expon(scale=100),
-                'model__gamma': expon(scale=.1)
+                'model__C': uniform(1, 1000),
+                'model__gamma': [0.01, 0.05, 0.1, 0.5, 1, 1.5]
             }
         ),
         'SVM-RBF': (
             SVC(kernel='rbf', probability=True, random_state=42),
             {
-                'model__C': expon(scale=100),
-                'model__gamma': expon(scale=.1)
+                'model__C': uniform(1, 1000),
+                'model__gamma': [0.01, 0.05, 0.1, 0.5, 1, 1.5]
             }
         ),
         'KNN': (
@@ -410,9 +410,10 @@ def main():
         'RF': (
             RandomForestClassifier(random_state=42),
             {
-                'model__n_estimators': randint(10, 600),
-                'model__max_depth': [None] + list(range(5, 41, 5)),
-                'model__max_features': ['auto','sqrt','log2']
+                'model__n_estimators': randint(10, 200),
+                'model__max_depth': [2, 5, 10, 25, 50],
+                'model__max_features': ['auto','sqrt','log2'],
+                'model__min_impurity_decrease':  [0.001, 0.00001, 0.00001] 
             }
         ),
         'MLP': (
@@ -427,7 +428,7 @@ def main():
         'AdaBoost': (
             AdaBoostClassifier(random_state=42),
             {
-                'model__n_estimators': randint(50, 301),
+                'model__n_estimators': randint(10, 250),
                 'model__learning_rate': [0.01, 0.001, 0.0001]
             }
         ),
