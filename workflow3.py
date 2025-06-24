@@ -40,14 +40,14 @@ warnings.filterwarnings('ignore')
 # Parâmetros de configuração
 SAMPLER_TYPE = 'under'  # "under" ou "smote"
 fold=5
-n_iter=5
-file='df_pa.parquet'
-ROI='PA'
+n_iter=40
+file='df_tk.parquet'
+ROI='TK'
 
 if ROI == 'PA':
     SAMPLING_STRATEGY = {0: 25000, 1: 25000}  # classificacao binaria
 elif ROI == 'TK':
-    SAMPLING_STRATEGY = {0: 3452, 1: 4000}
+    SAMPLING_STRATEGY = {0: 3300, 1: 3300}
     
 ROOT = os.getcwd()
 MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
@@ -419,7 +419,7 @@ def main():
         'MLP': (
             MLPClassifier(max_iter=1000, random_state=42),
             {
-                'model__hidden_layer_sizes': [((64, 32), (128, 64),(64, 32, 16), (128, 64, 32))],
+                'model__hidden_layer_sizes': [(50,), (100,), (50, 50), (100, 50), (100, 100)],
                 'model__alpha': 10.0 ** -np.arange(1, 5),
                 'model__learning_rate_init': [0.01, 0.001, 0.005],
                 'model__activation': ['relu', 'tanh', 'logistic']
@@ -438,7 +438,7 @@ def main():
             build_rbf_classifier(),
             {
                 'model__n_clusters': randint(5, 61),
-                'model__epsilon': loguniform(1e-4,1e-1)
+                'model__epsilon': [0.1, 0.01, 0.5,1.0]
             }
         )
     }
@@ -539,3 +539,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
