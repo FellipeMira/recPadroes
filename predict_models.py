@@ -7,6 +7,11 @@ from joblib import load
 
 from workflow import load_data, split_data, final_predictions
 
+from config import (
+    ROI, DATA_PATH, MODEL_DIR, MODEL_DIR_PCA,
+    FEATS_PATH, PCA_PATH
+)
+
 
 def load_models(model_dir):
     models = {}
@@ -18,17 +23,7 @@ def load_models(model_dir):
 
 
 def main():
-    ROI = 'PA'
-    file = 'df_pa.parquet'
-
-    ROOT = os.getcwd()
-    MODEL_DIR = os.path.join(ROOT, f"model_SFFS_{ROI}")
-    MODEL_DIR_PCA = os.path.join(ROOT, f"model_PCA_{ROI}")
-    FEATS_PATH = os.path.join(ROOT, f"selected_features_{ROI}.json")
-    PCA_PATH = os.path.join(ROOT, f"pca_scaler_{ROI}.joblib")
-
-    path = os.path.join(ROOT, file)
-    df, X = load_data(path)
+    df, X = load_data(DATA_PATH)
     X_train, X_test, _, y_test, _, _ = split_data(df, test_size=0.9)
     _, _, _, _, X_full, y_full = split_data(X, test_size=0.9)
     
