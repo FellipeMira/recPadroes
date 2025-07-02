@@ -34,26 +34,18 @@ from sffs import sffs
 import warnings
 from joblib import Memory, dump
 
+from config import (
+    ROI, SAMPLER_TYPE, SAMPLING_STRATEGY, DATA_PATH,
+    MODEL_DIR, MODEL_DIR_PCA
+)
+
 warnings.filterwarnings('ignore')
 
-
-SAMPLER_TYPE = 'under'
 fold = 5
 n_iter = 50
-file = 'df_pa.parquet'
-ROI = 'PA'
 
-if ROI == 'PA':
-    SAMPLING_STRATEGY = {0: 24000, 1: 24000}
-elif ROI == 'TK':
-    SAMPLING_STRATEGY = {0: 3000, 1: 3000}
-
-ROOT = os.getcwd()
-MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}_filtered")
-MODEL_DIR_PCA = fr"/home/mira/recPadroes/model_PCA_{ROI}_filtered"
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR_PCA, exist_ok=True)
-
 
 print(f"\n\tUsando estratégia de amostragem {ROI}: \n\n\t{SAMPLING_STRATEGY}")
 
@@ -362,8 +354,7 @@ def build_rbf_classifier():
 
 def main():
     # 1. Carrega dados
-    path = os.path.join(ROOT, file)
-    df, X = load_data(path)
+    df, X = load_data(DATA_PATH)
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
 
     # 2. Divide treino/teste

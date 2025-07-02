@@ -28,38 +28,25 @@ from workflow import (
     run_model, evaluate_on_test, build_rbf_classifier
 )
 
+from config import (
+    ROI, SAMPLER_TYPE, SAMPLING_STRATEGY, DATA_PATH,
+    MODEL_DIR, MODEL_DIR_PCA, FEATS_PATH, PCA_PATH
+)
+
 from sklearnex import patch_sklearn
 patch_sklearn()
 
 
 
 def main():
-    SAMPLER_TYPE = 'under'
     fold = 5
     n_iter = 50
-    file = 'df_pa.parquet'
-    ROI = 'PA'
 
-    if ROI == 'PA':
-        SAMPLING_STRATEGY = {0: 24000, 1: 24000}
-    elif ROI == 'TK':
-        SAMPLING_STRATEGY = {0: 3000, 1: 3000}
-        
-    ROOT = os.getcwd()
-    MODEL_DIR = os.path.join(ROOT, f"model_SFFS_{ROI}")
-    MODEL_DIR_PCA = os.path.join(ROOT, f"model_PCA_{ROI}")
-    FEATS_PATH = os.path.join(ROOT, f"selected_features_{ROI}.json")
-    PCA_PATH = os.path.join(ROOT, f"pca_scaler_{ROI}.joblib")
-    
     os.makedirs(MODEL_DIR, exist_ok=True)
-    os.makedirs(MODEL_DIR_PCA, exist_ok=True)   
-    os.makedirs(FEATS_PATH, exist_ok=True)
-    os.makedirs(PCA_PATH, exist_ok=True)
-    
-    path = os.path.join(ROOT, file)
-    print(f"\n\nCarregando dados de {path}...\n\n")
-    
-    df, X  = load_data(path)
+    os.makedirs(MODEL_DIR_PCA, exist_ok=True)
+    print(f"\n\nCarregando dados de {DATA_PATH}...\n\n")
+
+    df, X  = load_data(DATA_PATH)
     
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
     print(f"Contagem:\n{X.groupby('label').count()}")
