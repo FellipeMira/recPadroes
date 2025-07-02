@@ -50,7 +50,11 @@ os.makedirs(MODEL_DIR_PCA, exist_ok=True)
 print(f"\n\tUsando estratégia de amostragem {ROI}: \n\n\t{SAMPLING_STRATEGY}")
 
 def load_data(path: str):
-    """Carrega e prepara o DataFrame selecionando colunas automaticamente."""
+    """Carrega e prepara o DataFrame selecionando colunas automaticamente.
+
+    Valores ausentes são removidos para evitar problemas na seleção de
+    atributos e nos modelos subsequentes.
+    """
     df = pd.read_parquet(path)
 
     label_col = 'pseudosamples_rho2'
@@ -58,9 +62,15 @@ def load_data(path: str):
 
     df = df[feature_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
+
+    # remove ou imputa valores ausentes
+    if df.isna().any().any():
+        df = df.dropna()
+
     # remove registros rotulados como 0 e faz mapeamento -1 -> 1, 1 -> 0
-    df_1 = df[df['label'] != 0]
+    df_1 = df[df['label'] != 0].copy()
     df_1['label'] = df_1['label'].map({-1: 1, 1: 0})
+
     return (df_1, df)
 
 

@@ -54,7 +54,25 @@ def compute_info_gain_remove(Z: List[int], x: np.ndarray, posY: dict) -> np.ndar
 
 
 def sffs(X: np.ndarray, y: np.ndarray, max_features: int = None) -> Tuple[List[int], float]:
-    """Sequential Forward Floating Selection using the info criterion."""
+    """Sequential Forward Floating Selection using the info criterion.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Matriz de atributos (amostras x features). Não deve conter ``NaN``.
+    y : np.ndarray
+        Vetor de rótulos.
+
+    Raises
+    ------
+    ValueError
+        Se ``X`` contiver valores ``NaN``.
+    """
+    if np.isnan(X).any():
+        raise ValueError(
+            "Input data for SFFS contains NaN values. "
+            "Remova ou impute valores ausentes antes da seleção de atributos."
+        )
     n_feats = X.shape[1]
     max_features = n_feats if max_features is None else max_features
     posY = {c: np.where(y == c)[0] for c in np.unique(y)}
