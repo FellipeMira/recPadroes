@@ -44,8 +44,9 @@ def main():
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(MODEL_DIR_PCA, exist_ok=True)
-    os.makedirs(FEATS_PATH, exist_ok=True)
-    os.makedirs(PCA_PATH, exist_ok=True)
+    # ensure directories for output files exist
+    os.makedirs(os.path.dirname(FEATS_PATH) or '.', exist_ok=True)
+    os.makedirs(os.path.dirname(PCA_PATH) or '.', exist_ok=True)
     print(f"\n\nCarregando dados de {DATA_PATH}...\n\n")
 
     df, X  = load_data(DATA_PATH)
