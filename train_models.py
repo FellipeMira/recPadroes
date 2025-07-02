@@ -22,37 +22,51 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from scipy.stats import uniform, randint
 
-from workflow3 import (
+from workflow import (
     load_data, split_data, select_features_sffs, pca_analysis,
     apply_pca, compute_sampling_strategy,
     run_model, evaluate_on_test, build_rbf_classifier
 )
 
+from sklearnex import patch_sklearn
+patch_sklearn()
+
+
 
 def main():
     SAMPLER_TYPE = 'under'
     fold = 5
-    n_iter = 40
-    file = 'df_tk.parquet'
-    ROI = 'TK'
+    n_iter = 50
+    file = 'df_pa.parquet'
+    ROI = 'PA'
 
     if ROI == 'PA':
-        SAMPLING_STRATEGY = {0: 25000, 1: 25000}
+        SAMPLING_STRATEGY = {0: 24000, 1: 24000}
     elif ROI == 'TK':
-        SAMPLING_STRATEGY = {0: 3300, 1: 3300}
-
+        SAMPLING_STRATEGY = {0: 3000, 1: 3000}
+        
     ROOT = os.getcwd()
     MODEL_DIR = os.path.join(ROOT, f"model_SFFS_{ROI}")
     MODEL_DIR_PCA = os.path.join(ROOT, f"model_PCA_{ROI}")
     FEATS_PATH = os.path.join(ROOT, f"selected_features_{ROI}.json")
     PCA_PATH = os.path.join(ROOT, f"pca_scaler_{ROI}.joblib")
-
+    
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(MODEL_DIR_PCA, exist_ok=True)   
+    os.makedirs(FEATS_PATH, exist_ok=True)
+    os.makedirs(PCA_PATH, exist_ok=True)
+    
     path = os.path.join(ROOT, file)
-    df = load_data(path)
+    print(f"\n\nCarregando dados de {path}...\n\n")
+    
+    df, X  = load_data(path)
+    
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
-
-    X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
-
+    print(f"Contagem:\n{X.groupby('label').count()}")
+    
+    X_train, X_test, y_train, y_test, _, _ = split_data(df, test_size=0.5)
+    _, _, _, _, X_full, y_full = split_data(X, test_size=0.5)
+    
     if SAMPLER_TYPE == 'smote':
         sampling_strategy = None
     else:
@@ -146,7 +160,7 @@ def main():
     bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
     bag = BaggingClassifier(estimator=bag_base, random_state=42)
     trained['Bagging'] = run_model(
-        'Bagging', bag, {'model__n_estimators': [10,20,30]},
+        'Bagging', bag, {'model__n_estimators': [10,20,30,40,50]},
         X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
         sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
     )
