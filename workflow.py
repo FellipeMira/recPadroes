@@ -37,24 +37,25 @@ from joblib import Memory, dump
 warnings.filterwarnings('ignore')
 
 
-# Parâmetros de configuração
-SAMPLER_TYPE = 'under'  # "under" ou "smote"
-fold=5
-n_iter=40
-file='df_tk.parquet'
-ROI='TK'
+SAMPLER_TYPE = 'under'
+fold = 5
+n_iter = 50
+file = 'df_pa.parquet'
+ROI = 'PA'
 
 if ROI == 'PA':
-    SAMPLING_STRATEGY = {0: 25000, 1: 25000}  # classificacao binaria
+    SAMPLING_STRATEGY = {0: 24000, 1: 24000}
 elif ROI == 'TK':
-    SAMPLING_STRATEGY = {0: 3300, 1: 3300}
-    
+    SAMPLING_STRATEGY = {0: 3000, 1: 3000}
+
 ROOT = os.getcwd()
-MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}")
-MODEL_DIR_PCA = fr"/home/mira/recPadroes/model_PCA_{ROI}"
+MODEL_DIR = os.path.join(ROOT,f"model_SFFS_{ROI}_filtered")
+MODEL_DIR_PCA = fr"/home/mira/recPadroes/model_PCA_{ROI}_filtered"
+os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR_PCA, exist_ok=True)
 
-print(f"\tUsando estratégia de amostragem {ROI}: \n\t{SAMPLING_STRATEGY}")
 
+print(f"\n\tUsando estratégia de amostragem {ROI}: \n\n\t{SAMPLING_STRATEGY}")
 
 def load_data(path: str):
     """Carrega e prepara o DataFrame selecionando colunas automaticamente."""
@@ -66,9 +67,9 @@ def load_data(path: str):
     df = df[feature_cols + [label_col]].copy()
     df = df.rename(columns={label_col: 'label'})
     # remove registros rotulados como 0 e faz mapeamento -1 -> 1, 1 -> 0
-    df = df[df['label'] != 0]
-    df['label'] = df['label'].map({-1: 1, 1: 0})
-    return df
+    df_1 = df[df['label'] != 0]
+    df_1['label'] = df_1['label'].map({-1: 1, 1: 0})
+    return (df_1, df)
 
 
 def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42):
@@ -81,7 +82,7 @@ def split_data(df: pd.DataFrame, test_size: float = 0.9, random_state: int = 42)
     return X_train, X_test, y_train, y_test, X, y
 
 
-def select_features_sffs(X, y, max_features=10):
+def select_features_sffs(X, y, max_features=6):
     """Seleciona atributos usando o algoritmo SFFS baseado em informação."""
     subset, score = sffs(X.values, y.values, max_features=max_features)
     selected = X.columns[subset].tolist()
@@ -223,21 +224,22 @@ def final_predictions(df_full, X_full, y_full, X_test, y_test, trained: dict,
     top_models = test_df.sort_values('F1_Macro', ascending=False).head(top_n)['Model'].tolist()
     print(f"\nTop {top_n} modelos: {top_models}")
 
-    df_out = df_full.copy()
-    df_out['true_label'] = df_out['label']
+    df_out = X_full.copy()
+    #df_out['true_label'] = df_out['label']
 
     for name in top_models:
         mdl = trained[name]
         preds = mdl.predict(X_full)
-        probs = mdl.predict_proba(X_full)
+        #probs = mdl.predict_proba(X_full)
         df_out[f'pred_{name}'] = preds
+        
         # adicionar uma coluna de probabilidade por classe
-        if hasattr(mdl, 'named_steps'):
-            classes = mdl.named_steps['model'].classes_
-        else:
-            classes = mdl.classes_
-        for idx, cls in enumerate(classes):
-            df_out[f'prob_{cls}_{name}'] = probs[:, idx]
+        # if hasattr(mdl, 'named_steps'):
+        #     classes = mdl.named_steps['model'].classes_
+        # else:
+        #     classes = mdl.classes_
+        # for idx, cls in enumerate(classes):
+        #     df_out[f'prob_{cls}_{name}'] = probs[:, idx]
 
     df_out.to_csv(output_csv, index=False)
     print(f"Predições completas salvas em {output_csv}")
@@ -361,11 +363,13 @@ def build_rbf_classifier():
 def main():
     # 1. Carrega dados
     path = os.path.join(ROOT, file)
-    df = load_data(path)
+    df, X = load_data(path)
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
 
     # 2. Divide treino/teste
-    X_train, X_test, y_train, y_test, X_full, y_full = split_data(df, test_size=0.9)
+    X_train, X_test, y_train, y_test, _, _ = split_data(df, test_size=0.9)
+
+    _, _, _, _, X_full, y_full = split_data(X, test_size=0.9)
 
     if SAMPLER_TYPE == 'smote':
         sampling_strategy = None
@@ -542,9 +546,8 @@ def main():
 
     print("\n>>> Script concluído!")
 
-if __name__ == '__main__':
-    main()
-
+# if __name__ == '__main__':
+#     main()
 
 
 
