@@ -11,7 +11,8 @@ from config import (
     ROI, DATA_PATH, MODEL_DIR, MODEL_DIR_PCA,
     FEATS_PATH, PCA_PATH
 )
-
+path_pca = f'predictions_PCA_{ROI}_Filtered.csv'
+path_sffs = f'predictions_SFFS_{ROI}_Filtered.csv'
 
 def load_models(model_dir):
     models = {}
@@ -47,7 +48,7 @@ def main():
     print(f"\n\nModels loaded from {MODEL_DIR}:\n{list(models.keys())}\n\n")
        
     final_predictions(df, X_full_sel, y_full, X_test_sel, y_test, models,
-                      top_n=10, output_csv=f'predictions_SFFS_{ROI}.csv')
+                      top_n=10, output_csv=path_sffs)
 
     trans = load(PCA_PATH)
     scaler = trans['scaler']
@@ -63,7 +64,7 @@ def main():
 
     models_pca = load_models(MODEL_DIR_PCA)
     final_predictions(df, X_full_p, y_full, X_test_p, y_test, models_pca,
-                      top_n=10, output_csv=f'predictions_PCA_{ROI}_NoFiltered.csv')
+                      top_n=10, output_csv=path_pca)
 
 
 if __name__ == '__main__':
