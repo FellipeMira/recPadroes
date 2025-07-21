@@ -387,13 +387,15 @@ def main():
 
     # 5. Define modelos e parâmetros
     models = {
-        'SVM-Linear': (
-            SVC(kernel='linear', probability=True, random_state=42),
-            {
-                'model__C': uniform(1, 1000),
-                'model__gamma': [0.01, 0.05, 0.1, 0.5, 1, 1.5]
-            }
-        ),
+        # Adicionar o MLC - MaximaVerossimlhanca
+        
+        # 'SVM-Linear': (
+        #     SVC(kernel='linear', probability=True, random_state=42),
+        #     {
+        #         'model__C': uniform(1, 1000),
+        #         'model__gamma': [0.01, 0.05, 0.1, 0.5, 1, 1.5]
+        #     }
+        # ),
         'SVM-RBF': (
             SVC(kernel='rbf', probability=True, random_state=42),
             {
@@ -454,17 +456,19 @@ def main():
         )
 
     # 7. Ensemble: Bagging
-    bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
-    bag = BaggingClassifier(estimator=bag_base, random_state=42)
-    trained['Bagging'] = run_model(
-        'Bagging', bag, {'model__n_estimators': [10,20,30]},
-        X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
-        sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
-    )
+    # bag_base = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
+    
+    
+    # bag = BaggingClassifier(estimator=bag_base, random_state=42)
+    # trained['Bagging'] = run_model(
+    #     'Bagging', bag, {'model__n_estimators': [10,20,30]},
+    #     X_train, y_train, skf, scorers, n_iter, model_dir=MODEL_DIR,
+    #     sampling_strategy=sampling_strategy, sampler_type=SAMPLER_TYPE
+    # )
 
     # 8. Ensemble: Stacking
     stack = StackingClassifier(
-        estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
+        estimators=[(n, trained[n]) for n in ['RF','RBF-Net','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
         cv=skf, n_jobs=1
     )
@@ -539,7 +543,6 @@ def main():
 
 # if __name__ == '__main__':
 #     main()
-
 
 
 
