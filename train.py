@@ -40,16 +40,19 @@ patch_sklearn()
 
 def main():
     fold = 5
-    n_iter = 50
+    n_iter = 50 #50
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(MODEL_DIR_PCA, exist_ok=True)
+    print("\n\n", MODEL_DIR, MODEL_DIR_PCA, FEATS_PATH, PCA_PATH)
+    
     # ensure directories for output files exist
     os.makedirs(os.path.dirname(FEATS_PATH) or '.', exist_ok=True)
     os.makedirs(os.path.dirname(PCA_PATH) or '.', exist_ok=True)
     print(f"\n\nCarregando dados de {DATA_PATH}...\n\n")
 
     df, X  = load_data(DATA_PATH)
+    print(f"NAs: {df.isna().sum().sum()} NULLs {df.isnull().sum(axis = 0)}")
     
     print(f"Dados: {df.shape[0]} linhas, {df.shape[1]} colunas; classes:\n{df['label'].value_counts(normalize=True)}")
     print(f"Contagem:\n{X.groupby('label').count()}")
@@ -62,6 +65,8 @@ def main():
     else:
         sampling_strategy = compute_sampling_strategy(y_train)
 
+    print(f"\n\nX_train: {X_train.shape}\nX_test:{X_test.shape}\nX_full:{X_full.shape}\ny_full: {y_full.shape}\ny_test: {y_test.shape}\n\n")    
+    print("\n\nCols:", df.columns.tolist())
     print("\n>>> Selecionando atributos (SFFS)")
     selected_cols = select_features_sffs(X_train, y_train)
     with open(FEATS_PATH, 'w') as f:
@@ -135,6 +140,8 @@ def main():
             }
         )
     }
+    
+    
 
     trained = {}
     print(f'n_iter: {n_iter}')
@@ -156,7 +163,7 @@ def main():
     )
 
     stack = StackingClassifier(
-        estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
+        estimators=[(n, trained[n]) for n in ['RF','','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
         cv=skf, n_jobs=1
     )
@@ -193,7 +200,7 @@ def main():
     )
 
     stack = StackingClassifier(
-        estimators=[(n, trained[n]) for n in ['RF','SVM-Linear','MLP','KNN'] if n in trained],
+        estimators=[(n, trained[n]) for n in ['RF','RBF-Net','MLP','KNN'] if n in trained],
         final_estimator=LogisticRegression(max_iter=1000, random_state=42),
         cv=skf, n_jobs=1
     )
