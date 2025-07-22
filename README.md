@@ -29,7 +29,8 @@ Dois scripts foram adicionados:
 * `train_models.py` – treina os modelos, salva cada um em `model_SFFS_*` e
   `model_PCA_*` e grava as métricas de validação.
 * `predict_models.py` – carrega os modelos treinados, aplica as mesmas
-  transformações e gera um CSV com as previsões.
+  transformações e gera um CSV com as previsões. Use o parâmetro `--full`
+  para gerar previsões de modelos treinados com todas as features.
 
 Para acelerar os modelos do scikit-learn, o script utiliza a biblioteca
 `scikit-learn-intelex` (importada via `sklearnex`). Caso ela não esteja
