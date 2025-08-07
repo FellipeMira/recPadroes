@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Calcula métricas de FP, FN, TP e TN para modelos treinados."""
 import os
+import json
 import pandas as pd
 from joblib import load
 from sklearn.metrics import confusion_matrix
@@ -36,7 +37,13 @@ def compute_confusion(models, X_test, y_test):
     """Retorna média de FP, FN, TP e TN para um conjunto de modelos."""
     metrics = []
     for mdl in models.values():
-        preds = mdl.predict(X_test)
+        # Alinha as colunas de X_test com as utilizadas no treino do modelo
+        Xt = X_test
+        if hasattr(mdl, 'feature_names_in_'):
+            cols = [c for c in mdl.feature_names_in_ if c in X_test.columns]
+            if cols:
+                Xt = X_test[cols]
+        preds = mdl.predict(Xt)
         tn, fp, fn, tp = confusion_matrix(y_test, preds).ravel()
         metrics.append({'FP': fp, 'FN': fn, 'TP': tp, 'TN': tn})
     if not metrics:
@@ -57,7 +64,23 @@ def main():
             models = load_models(model_dir)
             if not models:
                 continue
-            cm = compute_confusion(models, X_test, y_test)
+            Xt = X_test
+            # Ajusta os dados de teste conforme o método utilizado
+            if method in {'SFFS', 'PCA'}:
+                feats_path = os.path.join(os.getcwd(), f"selected_features_{roi}.json")
+                if os.path.exists(feats_path):
+                    with open(feats_path) as f:
+                        selected = json.load(f)
+                    Xt = Xt[selected]
+            if method == 'PCA':
+                pca_path = os.path.join(os.getcwd(), f"pca_scaler_{roi}.joblib")
+                if os.path.exists(pca_path):
+                    obj = load(pca_path)
+                    scaler, pca = obj['scaler'], obj['pca']
+                    Xt_s = scaler.transform(Xt)
+                    cols = [f'PC{i+1}' for i in range(pca.n_components_)]
+                    Xt = pd.DataFrame(pca.transform(Xt_s), columns=cols, index=Xt.index)
+            cm = compute_confusion(models, Xt, y_test)
             rows.append({
                 'ROI': roi,
                 'Method': method,
